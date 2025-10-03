@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoramento de Segurança</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .monitor-grid {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .camera-container {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .camera-container:hover {
+            transform: scale(1.03); /* Efeito de zoom ao passar o mouse */
+        }
+        .camera-container h2 {
+            margin-top: 0;
+            color: #007bff;
+            font-size: 1.2em;
+        }
+        .camera-container img {
+            width: 640px; 
+            height: 480px; 
+            border: 3px solid #ccc;
+            border-radius: 5px;
+        }
+        /* Estilo dinâmico para indicar ALERTA */
+        .camera-container[data-alert="True"] img {
+            border-color: red;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.7);
+        }
+        .camera-container[data-alert="True"] h2 {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        // Função para recarregar a página a cada 30 segundos para atualizar
+        // o status de alerta caso a conexão de vídeo falhe.
+        // O vídeo em si já atualiza a borda dinamicamente.
+        setInterval(function() {
+            window.location.reload();
+        }, 30000);
+    </script>
+</head>
+<body>
+
+    <h1>Sistema de Monitoramento - Câmeras IP</h1>
+    
+    <div class="monitor-grid">
+        {% for cam_id, cam_info in camera_configs.items() %}
+        <div class="camera-container" data-cam-id="{{ cam_id }}" data-alert="{{ 'True' if cam_info.detectando else 'False' }}">
+            <h2>{{ cam_info.nome }}</h2>
+            <img src="{{ url_for('video_feed', cam_id=cam_id) }}" alt="Feed da Câmera {{ cam_info.nome }}">
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+</html>
