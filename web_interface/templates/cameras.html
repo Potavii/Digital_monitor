@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Monitoramento - Câmeras ao Vivo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>📹 Câmeras de Segurança - Detecção em Tempo Real</h1>
+                <div class="header-actions">
+                    <button class="btn btn-success" onclick="mostrarModalAdicionar()">➕ Adicionar Câmera</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Área Principal de Câmeras -->
+        <div class="main-camera-area">
+            <div id="camera-grid">
+                {% for cam in cameras_db %}
+                <div class="camera-live-card" data-id="{{ cam.cam_id }}">
+                    <div class="camera-header">
+                        <h3>{{ cam.nome }}</h3>
+                        <div class="camera-status">
+                            {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
+                            <span class="status-indicator status-online">● ONLINE</span>
+                            {% else %}
+                            <span class="status-indicator status-offline">● OFFLINE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="camera-stream-container">
+                        {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
+                        <img src="{{ url_for('video_feed', camera_id=cam.cam_id) }}?t={{ now().timestamp() }}" alt="Transmissão ao vivo">
+                        <div class="detection-overlay" id="detection-{{ cam.cam_id }}"></div>
+                        <div class="detection-info" style="position: absolute; top: 10px; right: 10px;">
+                            <span id="detection-count-{{ cam.cam_id }}" class="detection-badge" style="background: rgba(220, 53, 69, 0.9); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">0 pessoas</span>
+                        </div>
+                        {% else %}
+                        <div class="camera-placeholder" style="width: 100%; height: 240px; background: #f8f9fa; border: 2px dashed #dee2e6; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                            <div class="placeholder-content" style="text-align: center;">
+                                <span class="camera-icon" style="font-size: 48px; color: #6c757d;">📷</span>
+                                <p style="margin: 10px 0; color: #6c757d;">Câmera Offline</p>
+                                <button class="btn btn-success btn-sm" onclick="iniciarCamera('{{ cam.cam_id }}')" style="font-size: 12px; padding: 5px 10px;">▶️ Iniciar</button>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="camera-controls">
+                        <div class="control-buttons">
+                            {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
+                            <button class="btn btn-warning btn-xs" onclick="pararCamera('{{ cam.cam_id }}')" style="font-size: 11px; padding: 3px 6px;">⏹️ Parar</button>
+                            {% endif %}
+                            <button class="btn btn-danger btn-xs" onclick="removerCamera('{{ cam.cam_id }}')" style="font-size: 11px; padding: 3px 6px;">🗑️ Remover</button>
+                        </div>
+                        <div class="camera-info">
+                            <small>ID: {{ cam.cam_id }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if not cameras_db %}
+            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                <div class="empty-content">
+                    <span class="empty-icon" style="font-size: 64px; color: #6c757d;">📹</span>
+                    <h3 style="color: #495057; margin: 20px 0 10px 0;">Nenhuma câmera configurada</h3>
+                    <p style="color: #6c757d; margin-bottom: 30px;">Adicione sua primeira câmera para começar o monitoramento com detecção de pessoas</p>
+                    <button class="btn btn-primary" onclick="mostrarModalAdicionar()" style="font-size: 16px; padding: 12px 24px;">Adicionar Primeira Câmera</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <footer class="dashboard-footer">
+            <p>Sistema de Monitoramento com Detecção de Pessoas | YOLOv8</p>
+        </footer>
+    </div>
+
+    <!-- Modal para Adicionar Câmera -->
+    <div id="add-camera-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Adicionar Nova Câmera</h3>
+                <button class="modal-close" onclick="fecharModalAdicionar()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="camera-form" onsubmit="adicionarCamera(event)">
+                    <div class="form-group">
+                        <label for="cam_id">ID da Câmera:</label>
+                        <input type="text" id="cam_id" name="cam_id" required placeholder="cam1">
+                    </div>
+                    <div class="form-group">
+                        <label for="nome">Nome da Câmera:</label>
+                        <input type="text" id="nome" name="nome" required placeholder="Câmera Entrada">
+                    </div>
+                    <div class="form-group">
+                        <label for="url">URL RTSP:</label>
+                        <input type="text" id="url" name="url" required placeholder="rtsp://usuario:senha@192.168.1.100:554/stream">
+                        <small style="color: #666; font-size: 12px;">Exemplo: rtsp://admin:senha@192.168.1.100:554/onvif1</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">E-mail para Alertas:</label>
+                        <input type="email" class="form-control" id="cameraEmail" name="email_alerta">
+                    </div>
+                    <div class="form-group">
+                        <label>Área de Monitoramento (x1,y1,x2,y2):</label>
+                        <input type="text" id="area" name="area" placeholder="0,0,640,480" value="0,0,640,480">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="fecharModalAdicionar()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Adicionar Câmera</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+   <script>
+    function mostrarModalAdicionar() {
+        const modal = document.getElementById('add-camera-modal');
+        modal.style.display = 'block';
+    }
+
+    function fecharModalAdicionar() {
+        const modal = document.getElementById('add-camera-modal');
+        modal.style.display = 'none';
+        document.getElementById('camera-form').reset();
+    }
+
+    async function adicionarCamera(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const data = {
+            cam_id: formData.get('cam_id'),
+            nome: formData.get('nome'),
+            url: formData.get('url'),
+            receiver_email: formData.get('email_alerta') || 'admin@example.com',
+            area: formData.get('area') ? formData.get('area').split(',').map(Number) : [0, 0, 640, 480]
+        };
+
+        if (!data.cam_id || !data.nome || !data.url) {
+            alert('Preencha todos os campos obrigatórios!');
+            return;
+        }
+
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        submitBtn.textContent = 'Salvando...';
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/cameras', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert('Câmera adicionada com sucesso!');
+                location.reload();
+            } else {
+                const errorData = await response.json();
+                alert('Erro ao adicionar câmera: ' + (errorData.erro || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            alert('Erro de conexão. Verifique se os serviços estão rodando.');
+        } finally {
+            submitBtn.textContent = 'Adicionar Câmera';
+            submitBtn.disabled = false;
+            fecharModalAdicionar();
+        }
+    }
+
+async function removerCamera(camId) {
+            if (!confirm('Tem certeza que deseja remover esta câmera? Esta ação não pode ser desfeita.')) return;
+
+            try {
+                // Timeout aumentado para 15 segundos para dar mais folga.
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+                const response = await fetch('/api/cameras/' + camId, {
+                    method: 'DELETE',
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert('Câmera removida com sucesso!');
+                    location.reload();
+                } else {
+                    const result = await response.json();
+                    alert('Erro ao remover câmera: ' + (result.erro || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro na comunicação:', error);
+                if (error.name === 'AbortError') {
+                    alert('TIMEOUT: A operação demorou muito para ser concluída. Tente novamente.');
+                } else {
+                    alert('Erro na comunicação com o servidor: ' + error.message);
+                }
+            }
+        }
+
+    async function pararCamera(camId) {
+        try {
+            const response = await fetch('/api/cameras/' + camId + '/stop', {
+                method: 'POST'
+            });
+            if (response.ok) {
+                alert('Câmera parada com sucesso!');
+                location.reload();
+            } else {
+                const result = await response.json();
+                alert('Erro ao parar câmera: ' + (result.erro || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            alert('Erro na comunicação com o servidor.');
+        }
+    }
+
+    // ===== ESTA É A FUNÇÃO CORRETA E ÚNICA QUE VOCÊ PRECISA =====
+    async function iniciarCamera(camId) {
+        const card = document.querySelector(`[data-id="${camId}"]`);
+        const placeholder = card.querySelector('.camera-placeholder');
+
+        if (placeholder) {
+            placeholder.innerHTML = `
+                <div class="placeholder-content" style="text-align: center;">
+                    <span class="loading-icon" style="font-size: 48px; display: inline-block; animation: spin 1.5s linear infinite;">⏳</span>
+                    <p style="margin: 10px 0; color: #6c757d;">Iniciando conexão...</p>
+                </div>`;
+        }
+
+        try {
+            const response = await fetch('/api/cameras/' + camId + '/start', {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                // Sucesso! Apenas espera 2 segundos e recarrega a página.
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                const result = await response.json();
+                alert('ERRO ao iniciar câmera:\n' + (result.erro || 'Erro desconhecido'));
+                // Restaura o botão em caso de erro
+                if (placeholder) {
+                     placeholder.innerHTML = `
+                        <div class="placeholder-content" style="text-align: center;">
+                            <span class="camera-icon" style="font-size: 48px; color: #dc3545;">❌</span>
+                            <p style="margin: 10px 0; color: #6c757d;">Falha ao iniciar</p>
+                            <button class="btn btn-success btn-sm" onclick="iniciarCamera('${camId}')">▶️ Tentar Novamente</button>
+                        </div>`;
+                }
+            }
+        } catch (error) {
+            alert('ERRO DE CONEXÃO ao iniciar câmera:\n' + error.message);
+            if (placeholder) {
+                 placeholder.innerHTML = `
+                    <div class="placeholder-content" style="text-align: center;">
+                        <span class="camera-icon" style="font-size: 48px; color: #dc3545;">❌</span>
+                        <p style="margin: 10px 0; color: #6c757d;">Falha na comunicação</p>
+                        <button class="btn btn-success btn-sm" onclick="iniciarCamera('${camId}')">▶️ Tentar Novamente</button>
+                    </div>`;
+            }
+        }
+    }
+
+    async function atualizarContadoresDeDeteccao() {
+        try {
+            const response = await fetch('/api/events/latest');
+            if (!response.ok) {
+                console.error('Polling: Falha ao buscar eventos do servidor.');
+                return;
+            }
+            
+            const eventos = await response.json();
+            
+            // 1. Primeiro, vamos criar um mapa de contagem (ex: {'cam1': 5, 'cam2': 2})
+            //    Vamos contar apenas eventos dos últimos 30 segundos.
+            const agora = new Date();
+            const contagemRecente = {};
+
+            eventos.forEach(evento => {
+                const eventoTimestamp = new Date(evento.timestamp + 'Z'); // Adiciona 'Z' para UTC
+                const segundosAtras = (agora - eventoTimestamp) / 1000;
+
+                // Se o evento é de uma câmera ONLINE e tem menos de 30 segundos
+                if (segundosAtras < 30) {
+                    const camId = evento.camera_id;
+                    if (document.querySelector(`.camera-live-card[data-id="${camId}"] .status-online`)) {
+                        if (!contagemRecente[camId]) {
+                            contagemRecente[camId] = 0;
+                        }
+                        contagemRecente[camId]++;
+                    }
+                }
+            });
+
+            // 2. Agora, vamos atualizar a interface (o HTML)
+            const todosOsContadores = document.querySelectorAll('.detection-badge');
+            
+            todosOsContadores.forEach(span => {
+                const card = span.closest('.camera-live-card');
+                const camId = card.getAttribute('data-id');
+                const contadorElemento = document.getElementById(`detection-count-${camId}`);
+                
+                if (contagemRecente[camId]) {
+                    // Câmera com deteções recentes
+                    const contagem = contagemRecente[camId];
+                    contadorElemento.textContent = `${contagem} PESSOA${contagem > 1 ? 'S' : ''} DETETADA${contagem > 1 ? 'S' : ''}`;
+                    contadorElemento.style.background = 'rgba(220, 53, 69, 0.9)'; // Vermelho
+                    contadorElemento.style.fontWeight = 'bold';
+                } else {
+                    // Câmera sem deteções recentes (resetar para 0)
+                    contadorElemento.textContent = '0 pessoas';
+                    contadorElemento.style.background = 'rgba(0, 0, 0, 0.4)'; // Resetar cor
+                    contadorElemento.style.fontWeight = 'normal';
+                }
+            });
+
+        } catch (error) {
+            console.error('Polling Erro:', error);
+        }
+    }
+
+    // --- Inicia o "polling" ---
+    // Assim que a página carregar, vamos chamar a função de atualização
+    // e depois configurá-la para repetir a cada 3 segundos.
+    document.addEventListener('DOMContentLoaded', () => {
+        atualizarContadoresDeDeteccao(); // Chama a primeira vez
+        setInterval(atualizarContadoresDeDeteccao, 3000); // Repete a cada 3 segundos
+    });
+</script>
+</body>
+</html>

@@ -1,3 +1,17 @@
 opencv-python
 ultralytics
 flask
+flask-socketio
+Flask-Cors
+python-socketio
+python-engineio
+flask-cors
+sqlalchemy
+alembic
+python-multipart
+werkzeug
+jinja2
+markupsafe
+itsdangerous
+click
+blinker

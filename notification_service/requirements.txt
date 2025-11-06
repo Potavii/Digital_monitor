@@ -1,0 +1,4 @@
+flask
+requests
+secure-smtplib
+python-dotenv
