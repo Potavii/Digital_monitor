@@ -7,23 +7,28 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
+    <header class="dashboard-header">
+        <div class="dashboard-container">
             <div class="header-content">
                 <h1>📹 Câmeras de Segurança - Detecção em Tempo Real</h1>
                 <div class="header-actions">
                     <button class="btn btn-success" onclick="mostrarModalAdicionar()">➕ Adicionar Câmera</button>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
         <!-- Área Principal de Câmeras -->
         <div class="main-camera-area">
-            <div id="camera-grid">
+            <div id="camera-grid" class="camera-mosaic">
                 {% for cam in cameras_db %}
-                <div class="camera-live-card" data-id="{{ cam.cam_id }}">
-                    <div class="camera-header">
-                        <h3>{{ cam.nome }}</h3>
+                <div class="camera-mosaic-item" data-id="{{ cam.cam_id }}">
+                    <!-- Camera Header com Status -->
+                    <div class="camera-mosaic-header">
+                        <div class="camera-title">
+                            <h4>{{ cam.nome }}</h4>
+                            <small class="camera-id">ID: {{ cam.cam_id }}</small>
+                        </div>
                         <div class="camera-status">
                             {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
                             <span class="status-indicator status-online">● ONLINE</span>
@@ -33,34 +38,41 @@
                         </div>
                     </div>
 
-                    <div class="camera-stream-container">
+                    <!-- Camera Stream/Video -->
+                    <div class="camera-mosaic-stream">
                         {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
-                        <img src="{{ url_for('video_feed', camera_id=cam.cam_id) }}?t={{ now().timestamp() }}" alt="Transmissão ao vivo">
+                        <img src="{{ url_for('video_feed', camera_id=cam.cam_id) }}?t={{ now().timestamp() }}" alt="Transmissão ao vivo" class="camera-stream">
                         <div class="detection-overlay" id="detection-{{ cam.cam_id }}"></div>
-                        <div class="detection-info" style="position: absolute; top: 10px; right: 10px;">
-                            <span id="detection-count-{{ cam.cam_id }}" class="detection-badge" style="background: rgba(220, 53, 69, 0.9); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">0 pessoas</span>
+                        <div class="detection-info">
+                            <span id="detection-count-{{ cam.cam_id }}" class="detection-badge">0 pessoas</span>
                         </div>
                         {% else %}
-                        <div class="camera-placeholder" style="width: 100%; height: 240px; background: #f8f9fa; border: 2px dashed #dee2e6; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
-                            <div class="placeholder-content" style="text-align: center;">
-                                <span class="camera-icon" style="font-size: 48px; color: #6c757d;">📷</span>
-                                <p style="margin: 10px 0; color: #6c757d;">Câmera Offline</p>
-                                <button class="btn btn-success btn-sm" onclick="iniciarCamera('{{ cam.cam_id }}')" style="font-size: 12px; padding: 5px 10px;">▶️ Iniciar</button>
+                        <div class="camera-placeholder">
+                            <div class="placeholder-content">
+                                <span class="camera-icon">📷</span>
+                                <p>Câmera Offline</p>
                             </div>
                         </div>
                         {% endif %}
                     </div>
 
-                    <div class="camera-controls">
-                        <div class="control-buttons">
-                            {% if cam.cam_id in cameras_ativas.get('cameras', []) %}
-                            <button class="btn btn-warning btn-xs" onclick="pararCamera('{{ cam.cam_id }}')" style="font-size: 11px; padding: 3px 6px;">⏹️ Parar</button>
-                            {% endif %}
-                            <button class="btn btn-danger btn-xs" onclick="removerCamera('{{ cam.cam_id }}')" style="font-size: 11px; padding: 3px 6px;">🗑️ Remover</button>
-                        </div>
-                        <div class="camera-info">
-                            <small>ID: {{ cam.cam_id }}</small>
-                        </div>
+                    <!-- Camera Controls -->
+                    <div class="camera-mosaic-controls">
+                        {% if cam.cam_id not in cameras_ativas.get('cameras', []) %}
+                        <button class="btn btn-success btn-sm" onclick="iniciarCamera('{{ cam.cam_id }}')" title="Iniciar câmera">
+                            <span class="btn-icon">▶️</span>
+                            Iniciar
+                        </button>
+                        {% else %}
+                        <button class="btn btn-warning btn-sm" onclick="pararCamera('{{ cam.cam_id }}')" title="Parar câmera">
+                            <span class="btn-icon">⏹️</span>
+                            Parar
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-danger btn-sm" onclick="removerCamera('{{ cam.cam_id }}')" title="Remover câmera">
+                            <span class="btn-icon">🗑️</span>
+                            Remover
+                        </button>
                     </div>
                 </div>
                 {% endfor %}
@@ -77,45 +89,89 @@
             </div>
             {% endif %}
         </div>
-
-        <footer class="dashboard-footer">
-            <p>Sistema de Monitoramento com Detecção de Pessoas | YOLOv8</p>
-        </footer>
     </div>
 
+    <footer class="dashboard-footer">
+        <p>Sistema de Monitoramento com Detecção de Pessoas | YOLOv8</p>
+    </footer>
+
     <!-- Modal para Adicionar Câmera -->
-    <div id="add-camera-modal" class="modal" style="display: none;">
+    <div id="add-camera-modal" class="modal">
+        <div class="modal-overlay" onclick="fecharModalAdicionar()"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Adicionar Nova Câmera</h3>
-                <button class="modal-close" onclick="fecharModalAdicionar()">&times;</button>
+                <div class="modal-title-section">
+                    <div class="modal-icon">📹</div>
+                    <h3>Adicionar Nova Câmera</h3>
+                </div>
+                <button class="modal-close" onclick="fecharModalAdicionar()" title="Fechar">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="camera-form" onsubmit="adicionarCamera(event)">
-                    <div class="form-group">
-                        <label for="cam_id">ID da Câmera:</label>
-                        <input type="text" id="cam_id" name="cam_id" required placeholder="cam1">
+                    <div class="form-section">
+                        <h4>Informações Básicas</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="cam_id">
+                                    <span class="field-icon">🆔</span>
+                                    ID da Câmera
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" id="cam_id" name="cam_id" required placeholder="cam1" class="form-input">
+                                <div class="field-hint">Identificador único da câmera (ex: cam1, entrada, sala01)</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="nome">
+                                    <span class="field-icon">🏷️</span>
+                                    Nome da Câmera
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" id="nome" name="nome" required placeholder="Câmera Entrada Principal" class="form-input">
+                                <div class="field-hint">Nome descritivo para identificação</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="nome">Nome da Câmera:</label>
-                        <input type="text" id="nome" name="nome" required placeholder="Câmera Entrada">
+
+                    <div class="form-section">
+                        <h4>Configuração de Conexão</h4>
+                        <div class="form-group">
+                            <label for="url">
+                                <span class="field-icon">🔗</span>
+                                URL RTSP
+                                <span class="required">*</span>
+                            </label>
+                            <input type="url" id="url" name="url" required placeholder="rtsp://usuario:senha@192.168.1.100:554/stream" class="form-input">
+                            <div class="field-hint">Endereço completo do stream RTSP da câmera IP</div>
+                            <div class="field-examples">
+                                <strong>Exemplos:</strong>
+                                <code>rtsp://admin:senha123@192.168.1.100:554/onvif1</code><br>
+                                <code>rtsp://usuario@192.168.0.50:8554/live</code>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="url">URL RTSP:</label>
-                        <input type="text" id="url" name="url" required placeholder="rtsp://usuario:senha@192.168.1.100:554/stream">
-                        <small style="color: #666; font-size: 12px;">Exemplo: rtsp://admin:senha@192.168.1.100:554/onvif1</small>
+
+                    <div class="form-section">
+                        <h4>Notificações</h4>
+                        <div class="form-group">
+                            <label for="cameraEmail">
+                                <span class="field-icon">📧</span>
+                                E-mail para Alertas
+                            </label>
+                            <input type="email" id="cameraEmail" name="email_alerta" placeholder="admin@empresa.com" class="form-input">
+                            <div class="field-hint">E-mail onde serão enviados os alertas de detecção</div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="email">E-mail para Alertas:</label>
-                        <input type="email" class="form-control" id="cameraEmail" name="email_alerta">
-                    </div>
-                    <div class="form-group">
-                        <label>Área de Monitoramento (x1,y1,x2,y2):</label>
-                        <input type="text" id="area" name="area" placeholder="0,0,640,480" value="0,0,640,480">
-                    </div>
+
+
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="fecharModalAdicionar()">Cancelar</button>
-                        <button type="submit" class="btn btn-success">Adicionar Câmera</button>
+                        <button type="button" class="btn btn-secondary" onclick="fecharModalAdicionar()">
+                            <span class="btn-icon">❌</span>
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success" id="submit-btn">
+                            <span class="btn-icon">➕</span>
+                            Adicionar Câmera
+                        </button>
                     </div>
                 </form>
             </div>
@@ -125,33 +181,78 @@
    <script>
     function mostrarModalAdicionar() {
         const modal = document.getElementById('add-camera-modal');
-        modal.style.display = 'block';
+        modal.style.display = 'flex';
+        // Focar no primeiro campo
+        setTimeout(() => {
+            document.getElementById('cam_id').focus();
+        }, 100);
     }
 
     function fecharModalAdicionar() {
         const modal = document.getElementById('add-camera-modal');
         modal.style.display = 'none';
         document.getElementById('camera-form').reset();
+        clearValidationErrors();
     }
 
     async function adicionarCamera(event) {
         event.preventDefault();
+
+        // Limpar validações anteriores
+        clearValidationErrors();
+
         const formData = new FormData(event.target);
         const data = {
             cam_id: formData.get('cam_id'),
             nome: formData.get('nome'),
             url: formData.get('url'),
-            receiver_email: formData.get('email_alerta') || 'admin@example.com',
-            area: formData.get('area') ? formData.get('area').split(',').map(Number) : [0, 0, 640, 480]
+            receiver_email: formData.get('email_alerta') || 'admin@example.com'
         };
 
-        if (!data.cam_id || !data.nome || !data.url) {
-            alert('Preencha todos os campos obrigatórios!');
+        // Validação dos campos obrigatórios
+        let isValid = true;
+        const errors = [];
+
+        if (!data.cam_id || data.cam_id.trim().length === 0) {
+            showValidationError('cam_id', 'ID da câmera é obrigatório');
+            isValid = false;
+        } else if (!/^[a-zA-Z0-9_-]+$/.test(data.cam_id)) {
+            showValidationError('cam_id', 'ID deve conter apenas letras, números, _ ou -');
+            isValid = false;
+        }
+
+        if (!data.nome || data.nome.trim().length === 0) {
+            showValidationError('nome', 'Nome da câmera é obrigatório');
+            isValid = false;
+        } else if (data.nome.trim().length < 3) {
+            showValidationError('nome', 'Nome deve ter pelo menos 3 caracteres');
+            isValid = false;
+        }
+
+        if (!data.url || data.url.trim().length === 0) {
+            showValidationError('url', 'URL RTSP é obrigatória');
+            isValid = false;
+        } else if (!isValidRTSPUrl(data.url)) {
+            showValidationError('url', 'URL RTSP inválida (deve começar com rtsp://)');
+            isValid = false;
+        }
+
+        // Validação do email se fornecido
+        if (data.receiver_email && data.receiver_email.trim().length > 0) {
+            if (!isValidEmail(data.receiver_email)) {
+                showValidationError('cameraEmail', 'E-mail inválido');
+                isValid = false;
+            }
+        }
+
+
+        if (!isValid) {
             return;
         }
 
-        const submitBtn = event.target.querySelector('button[type="submit"]');
-        submitBtn.textContent = 'Salvando...';
+        const submitBtn = document.getElementById('submit-btn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="loading-spinner"></span> Salvando...';
         submitBtn.disabled = true;
 
         try {
@@ -162,19 +263,108 @@
             });
 
             if (response.ok) {
-                alert('Câmera adicionada com sucesso!');
-                location.reload();
+                showSuccessMessage('Câmera adicionada com sucesso!');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
             } else {
                 const errorData = await response.json();
-                alert('Erro ao adicionar câmera: ' + (errorData.erro || 'Erro desconhecido'));
+                showErrorMessage('Erro ao adicionar câmera: ' + (errorData.erro || 'Erro desconhecido'));
             }
         } catch (error) {
-            alert('Erro de conexão. Verifique se os serviços estão rodando.');
+            showErrorMessage('Erro de conexão. Verifique se os serviços estão rodando.');
         } finally {
-            submitBtn.textContent = 'Adicionar Câmera';
+            submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
-            fecharModalAdicionar();
         }
+    }
+
+    function showValidationError(fieldId, message) {
+        const input = document.getElementById(fieldId);
+        const formGroup = input.closest('.form-group');
+
+        input.classList.add('error');
+        input.classList.remove('success');
+
+        // Remover erro anterior se existir
+        const existingError = formGroup.querySelector('.field-error');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        // Adicionar novo erro
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error';
+        errorDiv.textContent = message;
+        formGroup.appendChild(errorDiv);
+    }
+
+    function clearValidationErrors() {
+        // Limpar classes de erro/sucesso
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.classList.remove('error', 'success');
+        });
+
+        // Remover mensagens de erro
+        document.querySelectorAll('.field-error').forEach(error => {
+            error.remove();
+        });
+    }
+
+    function isValidRTSPUrl(url) {
+        try {
+            const parsedUrl = new URL(url);
+            return parsedUrl.protocol === 'rtsp:';
+        } catch {
+            return false;
+        }
+    }
+
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    function showSuccessMessage(message) {
+        removeExistingNotifications();
+        const notification = document.createElement('div');
+        notification.className = 'notificacao';
+        notification.innerHTML = `
+            <span class="notificacao-icon">✅</span>
+            ${message}
+            <button onclick="this.parentElement.remove()">×</button>
+        `;
+        document.body.appendChild(notification);
+
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    function showErrorMessage(message) {
+        removeExistingNotifications();
+        const notification = document.createElement('div');
+        notification.className = 'notificacao notificacao-erro';
+        notification.innerHTML = `
+            <span class="notificacao-icon">❌</span>
+            ${message}
+            <button onclick="this.parentElement.remove()">×</button>
+        `;
+        document.body.appendChild(notification);
+
+        // Auto-remover após 7 segundos para erros
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 7000);
+    }
+
+    function removeExistingNotifications() {
+        document.querySelectorAll('.notificacao').forEach(notif => notif.remove());
     }
 
 async function removerCamera(camId) {
